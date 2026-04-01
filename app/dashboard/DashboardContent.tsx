@@ -438,13 +438,13 @@ export default function DashboardContent({
         {/* STATS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {[
-            { label: t.stats.pending, count: stats.pending, color: 'text-blue-600' },
-            { label: t.stats.accepted, count: stats.accepted, color: 'text-blue-600' },
-            { label: t.stats.declined, count: stats.declined, color: 'text-slate-400' },
+            { label: t.stats.pending, count: stats.pending, color: 'text-orange-600 font-semibold', border: "border-orange-400" },
+            { label: t.stats.accepted, count: stats.accepted, color: 'text-green-600 font-semibold', border: "border-green-400" },
+            { label: t.stats.declined, count: stats.declined, color: 'text-red-600 font-semibold', border: "border-red-400" },
           ].map((stat) => (
-            <div key={stat.label} className="bg-white border border-blue-100 p-6 flex justify-between items-center shadow-sm hover:border-blue-300 transition-colors">
+            <div key={stat.label} className={`bg-white border border-blue-100 p-6 flex justify-between items-center shadow-sm hover:border-blue-300 transition-colors ${stat.border}`}>
               <span className="text-[13px] font-bold text-slate-400 uppercase tracking-widest">{stat.label}</span>
-              <span className={`text-3xl font-light ${stat.color}`}>{stat.count}</span>
+              <span className={`text-3xl ${stat.color}`}>{stat.count}</span>
             </div>
           ))}
         </div>
@@ -755,8 +755,8 @@ export default function DashboardContent({
                     <div>
                       <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">{t.modal.status}</h4>
                       <span className={`text-[12px] font-bold uppercase tracking-wider px-2 py-1 border ${selectedViolation?.status === 'ACCEPTED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                          selectedViolation?.status === 'DECLINED' ? 'bg-rose-50 text-rose-600 border-rose-100' :
-                            'bg-orange-50 text-orange-600 border-orange-100'
+                        selectedViolation?.status === 'DECLINED' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                          'bg-orange-50 text-orange-600 border-orange-100'
                         }`}>
                         {selectedViolation?.status === 'ACCEPTED' ? t.status.approved :
                           selectedViolation?.status === 'DECLINED' ? t.status.rejected : t.status.pending}
