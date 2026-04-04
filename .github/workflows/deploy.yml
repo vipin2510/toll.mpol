@@ -1,0 +1,24 @@
+name: Deploy Traffic Dash
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /root/sahil/webapps/trrffc-dash
+            git pull origin main
+            npm install
+            npm run build || exit 1
+            pm2 reload trafiic-dash || pm2 start npm --name "trafiic-dash" -- start -- -p 3001

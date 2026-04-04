@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { signToken } from '@/lib/auth';
-import { cookies } from 'next/headers';
 
 export async function POST(request: Request) {
   try {
@@ -8,19 +7,18 @@ export async function POST(request: Request) {
 
     if (id === '1234567890' && password === '1234567890') {
       const token = await signToken(id);
-      
+
       const response = NextResponse.json(
         { success: true, message: 'Logged in successfully' },
         { status: 200 }
       );
 
-      // Set auth_token cookie
-      const cookieStore = await cookies();
-      cookieStore.set('auth_token', token, {
+      // Set cookie directly on the response — NOT via cookieStore
+      response.cookies.set('auth_token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 60 * 60 * 24, // 1 day
+        maxAge: 60 * 60 * 24,
         path: '/',
       });
 
