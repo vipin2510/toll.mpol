@@ -26,7 +26,6 @@ export async function GET(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
-
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -34,25 +33,49 @@ export async function PATCH(
   try {
     const session = await getSession();
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
-    const { status, reason } = await request.json();
+    const body = await request.json();
     const { id } = await params;
-    const uppercaseStatus = status.toUpperCase();
+
+    const updateData: any = {};
+
+    if (body.status) {
+      updateData.status = body.status.toUpperCase();
+    }
+
+    if (body.reason !== undefined) {
+      updateData.reason = body.reason || null;
+    }
+
+    if (body.vehicle_number !== undefined) {
+      updateData.vehicle_number = body.vehicle_number;
+    }
 
     const { data, error } = await supabase
       .from('helmet_violations')
-      .update({ status: uppercaseStatus, reason: reason || null })
+      .update(updateData)
       .eq('id', id)
       .select();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json({ success: true, data });
-  } catch (error) {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+
+  } catch (error: any) {
+    console.error('PATCH ERROR:', error);
+    return NextResponse.json(
+      { error: error.message || 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

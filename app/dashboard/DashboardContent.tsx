@@ -485,7 +485,7 @@ const ViolationRow = React.memo(({
       <td className="px-2 py-2">
         {sceneSrc
           ? <div className="border border-blue-100 overflow-hidden rounded-sm group">
-              <LazyImage src={sceneSrc} alt="Scene" thumbClass="w-43 h-33" />
+              <LazyImage src={sceneSrc} alt="Scene" thumbClass="w-48 h-34" />
             </div>
           : <span className="text-[9px] text-slate-200 uppercase">—</span>
         }
