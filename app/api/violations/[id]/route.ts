@@ -33,10 +33,7 @@ export async function PATCH(
   try {
     const session = await getSession();
     if (!session) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
@@ -47,13 +44,14 @@ export async function PATCH(
     if (body.status) {
       updateData.status = body.status.toUpperCase();
     }
-
     if (body.reason !== undefined) {
       updateData.reason = body.reason || null;
     }
-
     if (body.vehicle_number !== undefined) {
       updateData.vehicle_number = body.vehicle_number;
+    }
+    if (body.challan !== undefined) {          // ← this was missing
+      updateData.challan = body.challan;
     }
 
     const { data, error } = await supabase
@@ -63,10 +61,7 @@ export async function PATCH(
       .select();
 
     if (error) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
     return NextResponse.json({ success: true, data });
