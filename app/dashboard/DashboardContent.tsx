@@ -26,7 +26,6 @@ function toImageSrc(raw: string | null | undefined): string | null {
 function LazyImage({
   src,
   alt,
-  thumbClass = 'w-28 h-20',   // fixed size in table → no layout shift, fast decode
   fullSize = false,             // full-width for modal
 }: {
   src: string;
@@ -37,12 +36,13 @@ function LazyImage({
   const [loaded, setLoaded] = useState(false);
   const { ref, inView } = useInView({ triggerOnce: true, rootMargin: '400px' });
 
-  const containerCls = fullSize ? 'relative w-full bg-slate-100 overflow-hidden' : `relative bg-slate-100 overflow-hidden ${thumbClass}`;
+  // Add w-full h-full for thumbnails, ensure proper containment in fullSize
+  const containerCls = fullSize ? 'relative w-full bg-slate-100/50 overflow-hidden flex justify-center' : 'relative w-full h-full bg-slate-100 overflow-hidden';
 
   return (
     <div ref={ref} className={containerCls}>
       {!loaded && (
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-100 via-slate-200 to-slate-100 animate-[shimmer_1.4s_infinite]" />
+        <div className="absolute inset-0 bg-linear-to-r from-slate-100 via-slate-200 to-slate-100 animate-[shimmer_1.4s_infinite]" />
       )}
       {inView && (
         <img
@@ -50,8 +50,8 @@ function LazyImage({
           alt={alt}
           decoding="async"
           loading="lazy"
-          // For thumbnails: use CSS to clip at the fixed size; avoids painting a 2MB base64 at full res
-          className={`${fullSize ? 'w-full h-auto block' : 'w-full h-full object-cover'} transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+          // max-h-[50vh] prevents fullSize image from blowing up the modal
+          className={`${fullSize ? 'w-full max-h-[50vh] object-contain block' : 'w-full h-full object-cover'} transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
           onLoad={() => setLoaded(true)}
         />
       )}
@@ -59,6 +59,35 @@ function LazyImage({
   );
 }
 
+// ---------------------------------------------------------------------------
+// PlateLazyImage — magnified version for license plates
+// ---------------------------------------------------------------------------
+function PlateLazyImage({ src, alt, fullSize = false }: { src: string; alt: string; fullSize?: boolean }) {
+  const [loaded, setLoaded] = useState(false);
+  const { ref, inView } = useInView({ triggerOnce: true, rootMargin: '100px' });
+
+  // NO fixed size container, just rounded wrapper to fit image properly
+  const containerCls = fullSize
+    ? 'relative w-full bg-slate-100 overflow-hidden outline outline-1 outline-blue-100'
+    : 'relative bg-slate-100 overflow-hidden rounded shadow-sm group inline-flex shrink-0';
+
+  return (
+    <div ref={ref} className={containerCls}>
+      {!loaded && (
+        <div className="absolute inset-0 bg-linear-to-r from-slate-100 via-slate-200 to-slate-100 animate-[shimmer_1.4s_infinite]" />
+      )}
+      {inView && (
+        <img
+          src={src}
+          alt={alt}
+          // Set to precisely 2x the standard height (104px vs 52px). Width remains auto (no fixed width).
+          className={`${fullSize ? 'w-full h-auto object-contain' : 'h-[104px] w-auto max-w-none'} transition-transform duration-300 hover:scale-[1.1] ${loaded ? 'opacity-100' : 'opacity-0'}`}
+          onLoad={() => setLoaded(true)}
+        />
+      )}
+    </div>
+  );
+}
 // ---------------------------------------------------------------------------
 // SkeletonRow
 // ---------------------------------------------------------------------------
@@ -404,11 +433,10 @@ function ChallanCheckbox({
         <button
           onClick={() => onToggle(violation.id, !checked)}
           title={checked ? 'Challan issued — click to revoke' : 'Click to issue challan'}
-          className={`w-5 h-5 border-2 flex items-center justify-center transition-all rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 ${
-            checked
-              ? 'bg-blue-600 border-blue-600 shadow-md shadow-blue-200'
-              : 'bg-white border-slate-300 hover:border-blue-400 hover:bg-blue-50'
-          }`}
+          className={`w-5 h-5 border-2 flex items-center justify-center transition-all rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 ${checked
+            ? 'bg-blue-600 border-blue-600 shadow-md shadow-blue-200'
+            : 'bg-white border-slate-300 hover:border-blue-400 hover:bg-blue-50'
+            }`}
         >
           {checked && (
             <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -462,9 +490,9 @@ const ViolationRow = React.memo(({
       <td className="px-3 py-2.5 text-[11px] text-slate-500 whitespace-nowrap">
         {violation.detected_at
           ? new Date(violation.detected_at).toLocaleString('en-IN', {
-              day: '2-digit', month: 'short', year: '2-digit',
-              hour: '2-digit', minute: '2-digit',
-            })
+            day: '2-digit', month: 'short', year: '2-digit',
+            hour: '2-digit', minute: '2-digit',
+          })
           : '—'}
       </td>
 
@@ -481,22 +509,20 @@ const ViolationRow = React.memo(({
       {/* Track ID */}
       <td className="px-3 py-2.5 text-[10px] text-slate-400 font-mono">{violation.track_id}</td>
 
-      {/* Scene thumbnail — fixed 112×80px crop; fast even for big base64 */}
+      {/* Scene thumbnail */}
       <td className="px-2 py-2">
         {sceneSrc
-          ? <div className="border border-blue-100 overflow-hidden rounded-sm group">
-              <LazyImage src={sceneSrc} alt="Scene" thumbClass="w-48 h-34" />
-            </div>
+          ? <div className="w-auto min-w-[90px] max-w-auto aspect-auto border border-blue-100 overflow-hidden rounded-sm group relative scale-85">
+            <LazyImage src={sceneSrc} alt="Scene" />
+          </div>
           : <span className="text-[9px] text-slate-200 uppercase">—</span>
         }
       </td>
 
-      {/* Plate thumbnail — fixed 96×52px */}
+      {/* Plate thumbnail — magnified with PlateLazyImage */}
       <td className="px-2 py-2">
         {plateSrc
-          ? <div className="border border-blue-100 overflow-hidden rounded-sm group">
-              <LazyImage src={plateSrc} alt="Plate" thumbClass="w-24 h-14" />
-            </div>
+          ? <PlateLazyImage src={plateSrc} alt="Plate" />
           : <span className="text-[9px] text-slate-200 uppercase">—</span>
         }
       </td>
@@ -727,8 +753,8 @@ export default function DashboardContent({
       }
       toast.success(
         uppercaseStatus === 'ACCEPTED' ? 'Accepted ✓' :
-        uppercaseStatus === 'DECLINED' ? 'Declined ✕' :
-        'Reset to Pending',
+          uppercaseStatus === 'DECLINED' ? 'Declined ✕' :
+            'Reset to Pending',
         { id: toastId }
       );
     } catch (err: any) {
@@ -821,7 +847,7 @@ export default function DashboardContent({
         }
       `}</style>
 
-      <div className="min-h-screen bg-slate-50 text-slate-800">
+      <div className="min-h-screen bg-white text-slate-800">
 
         {/* ── HEADER ── */}
         <header className="bg-blue-600 border-b border-blue-700 sticky top-0 z-40 shadow-sm">
@@ -837,10 +863,10 @@ export default function DashboardContent({
                 {isFetchingNew
                   ? <><AiOutlineLoading3Quarters className="w-3 h-3 animate-spin" /> {T.fetching}</>
                   : <>{T.fetchNew}
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                    </>
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </>
                 }
               </button>
               <button
@@ -853,16 +879,16 @@ export default function DashboardContent({
           </div>
         </header>
 
-        <main className="px-6 py-5">
+        <main className=" py-5">
 
           {/* ── STATS ── */}
-          <div className="grid grid-cols-3 gap-4 mb-5">
+          <div className="grid grid-cols-3 gap-4 mb-5 px-5">
             {[
-              { label: T.stats.pending,  count: stats.pending,  color: 'text-orange-600', border: 'border-l-4 border-l-orange-400' },
-              { label: T.stats.accepted, count: stats.accepted, color: 'text-emerald-600', border: 'border-l-4 border-l-emerald-400' },
-              { label: T.stats.declined, count: stats.declined, color: 'text-rose-600',    border: 'border-l-4 border-l-rose-400' },
+              { label: T.stats.pending, count: stats.pending, color: 'text-orange-600', border: 'border-l-4 border-orange-400' },
+              { label: T.stats.accepted, count: stats.accepted, color: 'text-emerald-600', border: 'border-l-4 border-emerald-400' },
+              { label: T.stats.declined, count: stats.declined, color: 'text-rose-600', border: 'border-l-4 border-rose-400' },
             ].map((s) => (
-              <div key={s.label} className={`bg-white border border-blue-100 px-5 py-4 flex justify-between items-center shadow-sm ${s.border}`}>
+              <div key={s.label} className={`bg-white border border-gray-300 px-5 py-4 flex justify-between items-center ${s.border}`}>
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{s.label}</span>
                 <span className={`text-3xl font-black ${s.color}`}>{s.count}</span>
               </div>
@@ -870,7 +896,7 @@ export default function DashboardContent({
           </div>
 
           {/* ── SEARCH + FILTER ── */}
-          <div className="flex flex-col lg:flex-row justify-between items-end lg:items-center mb-4 gap-3 bg-white p-3.5 border border-blue-100 shadow-sm">
+          <div className="flex flex-col lg:flex-row justify-between items-end lg:items-center mb-4 gap-3 bg-white p-3.5 border border-blue-100">
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
               <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -937,7 +963,7 @@ export default function DashboardContent({
 
           {/* ── TABLE ── */}
           <div className="bg-white border border-blue-100 shadow-xl overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-max text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-blue-100">
                   {[
@@ -1062,19 +1088,17 @@ export default function DashboardContent({
                         ? <div className="w-full h-48 bg-gradient-to-r from-slate-100 via-slate-200 to-slate-100 animate-[shimmer_1.4s_infinite] border border-blue-50" />
                         : toImageSrc(extraImages?.complete_image)
                           ? <div className="border border-blue-50 overflow-hidden group rounded-sm">
-                              <LazyImage src={toImageSrc(extraImages!.complete_image)!} alt="Scene" fullSize />
-                            </div>
+                            <LazyImage src={toImageSrc(extraImages!.complete_image)!} alt="Scene" fullSize />
+                          </div>
                           : <div className="w-full py-10 flex flex-col items-center gap-2 bg-slate-50 border border-dashed border-slate-200 text-[9px] text-slate-300 uppercase tracking-widest">No Image</div>
                       }
                     </div>
                     <div>
                       <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{T.modal.images.plate}</h4>
                       {loadingImages
-                        ? <div className="w-full h-20 bg-gradient-to-r from-slate-100 via-slate-200 to-slate-100 animate-[shimmer_1.4s_infinite] border border-blue-50" />
+                        ? <div className="w-full h-32 bg-gradient-to-r from-slate-100 via-slate-200 to-slate-100 animate-[shimmer_1.4s_infinite] border border-blue-50" />
                         : toImageSrc(extraImages?.plate_image)
-                          ? <div className="border border-blue-50 overflow-hidden group rounded-sm">
-                              <LazyImage src={toImageSrc(extraImages!.plate_image)!} alt="Plate" fullSize />
-                            </div>
+                          ? <PlateLazyImage src={toImageSrc(extraImages!.plate_image)!} alt="Plate" fullSize />
                           : <div className="w-full py-5 flex items-center justify-center bg-slate-50 border border-dashed border-slate-200 text-[9px] text-slate-300 uppercase tracking-widest">No Plate Image</div>
                       }
                     </div>
@@ -1083,10 +1107,10 @@ export default function DashboardContent({
                   {/* Details grid */}
                   <div className="grid grid-cols-2 gap-x-7 gap-y-6">
                     {[
-                      { label: T.modal.trackId,      value: selectedViolation.track_id },
+                      { label: T.modal.trackId, value: selectedViolation.track_id },
                       { label: T.modal.vehicleNumber, value: selectedViolation.vehicle_number, mono: true, blue: true },
-                      { label: T.modal.location,      value: selectedViolation.location,       upper: true },
-                      { label: T.modal.dateFolder,    value: selectedViolation.date_folder,    mono: true },
+                      { label: T.modal.location, value: selectedViolation.location, upper: true },
+                      { label: T.modal.dateFolder, value: selectedViolation.date_folder, mono: true },
                       { label: T.modal.violationType, value: selectedViolation.helmet_status || 'DETECTION', blue: true },
                     ].map(({ label, value, mono, blue, upper }) => (
                       <div key={label}>
@@ -1102,23 +1126,22 @@ export default function DashboardContent({
                       <p className="text-[12px] font-semibold text-slate-700">
                         {selectedViolation.detected_at
                           ? new Date(selectedViolation.detected_at).toLocaleString('en-IN', {
-                              day: '2-digit', month: 'long', year: 'numeric',
-                              hour: '2-digit', minute: '2-digit', second: '2-digit',
-                            })
+                            day: '2-digit', month: 'long', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit', second: '2-digit',
+                          })
                           : '—'}
                       </p>
                     </div>
 
                     <div className="col-span-2">
                       <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{T.modal.status}</h4>
-                      <span className={`text-[11px] font-black uppercase tracking-wider px-2 py-1 border ${
-                        selectedViolation.status === 'ACCEPTED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                      <span className={`text-[11px] font-black uppercase tracking-wider px-2 py-1 border ${selectedViolation.status === 'ACCEPTED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                         selectedViolation.status === 'DECLINED' ? 'bg-rose-50 text-rose-600 border-rose-100' :
-                        'bg-orange-50 text-orange-600 border-orange-100'
-                      }`}>
+                          'bg-orange-50 text-orange-600 border-orange-100'
+                        }`}>
                         {selectedViolation.status === 'ACCEPTED' ? T.status.approved :
-                         selectedViolation.status === 'DECLINED' ? T.status.rejected :
-                         T.status.pending}
+                          selectedViolation.status === 'DECLINED' ? T.status.rejected :
+                            T.status.pending}
                       </span>
                     </div>
 
