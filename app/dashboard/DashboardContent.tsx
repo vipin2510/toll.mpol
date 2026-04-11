@@ -9,12 +9,19 @@ import { useInView } from 'react-intersection-observer';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 
 // ---------------------------------------------------------------------------
-// Image helpers
+// Image helpers — handles base64 strings AND https:// URLs
 // ---------------------------------------------------------------------------
 function toImageSrc(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const s = raw.trim();
+
+  // Already a complete data URI
   if (s.startsWith('data:')) return s;
+
+  // Remote URL (Supabase Storage or any https)
+  if (s.startsWith('http://') || s.startsWith('https://')) return s;
+
+  // Raw base64 — detect PNG vs JPEG by header
   const mime = s.startsWith('iVBOR') ? 'image/png' : 'image/jpeg';
   return `data:${mime};base64,${s}`;
 }
@@ -455,7 +462,7 @@ function ChallanCheckbox({
 }
 
 // ---------------------------------------------------------------------------
-// ViolationRow — now accepts sceneSize + sceneHeight props
+// ViolationRow — uses complete_image_url / plate_image_url
 // ---------------------------------------------------------------------------
 const ViolationRow = React.memo(({
   violation,
@@ -484,8 +491,9 @@ const ViolationRow = React.memo(({
   sceneSize: number;
   sceneHeight: number;
 }) => {
-  const sceneSrc = toImageSrc(violation.complete_image_b64);
-  const plateSrc = toImageSrc(violation.plate_image_b64);
+  // toImageSrc handles both https:// URLs and raw base64 strings
+  const sceneSrc = toImageSrc(violation.complete_image_url);
+  const plateSrc = toImageSrc(violation.plate_image_url);
 
   return (
     <tr
@@ -642,12 +650,6 @@ export default function DashboardContent({
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [challanUpdatingId, setChallanUpdatingId] = useState<string | null>(null);
 
-  const [loadingImages, setLoadingImages] = useState(false);
-  const [extraImages, setExtraImages] = useState<{
-    complete_image: string | null;
-    plate_image: string | null;
-  } | null>(null);
-
   // ── Scene size control (persisted) ──────────────────────────────────────
   const [sceneSize, setSceneSize] = useState<number>(() => {
     if (typeof window !== 'undefined') {
@@ -679,30 +681,12 @@ export default function DashboardContent({
   const router = useRouter();
 
   // ---------------------------------------------------------------------------
-  // Modal image fetch
+  // Modal: images come directly from the selected violation row
+  // No secondary fetch needed — complete_image_url / plate_image_url
+  // are included in the list API response
   // ---------------------------------------------------------------------------
-  useEffect(() => {
-    if (!selectedViolation) { setExtraImages(null); return; }
-    if (selectedViolation.complete_image_b64 !== undefined) {
-      setExtraImages({
-        complete_image: selectedViolation.complete_image_b64 ?? null,
-        plate_image: selectedViolation.plate_image_b64 ?? null,
-      });
-      return;
-    }
-    setLoadingImages(true);
-    setExtraImages(null);
-    axios.get(`/api/violations/${selectedViolation.id}`)
-      .then((res) => {
-        const d = res.data.data;
-        setExtraImages({ complete_image: d?.complete_image_b64 ?? null, plate_image: d?.plate_image_b64 ?? null });
-      })
-      .catch((err: any) => {
-        toast.error(err.response?.data?.error ?? 'Failed to load images');
-        setExtraImages({ complete_image: null, plate_image: null });
-      })
-      .finally(() => setLoadingImages(false));
-  }, [selectedViolation?.id]);
+  const modalSceneSrc = selectedViolation ? toImageSrc(selectedViolation.complete_image_url) : null;
+  const modalPlateSrc = selectedViolation ? toImageSrc(selectedViolation.plate_image_url) : null;
 
   // ---------------------------------------------------------------------------
   // fetchViolations
@@ -847,7 +831,7 @@ export default function DashboardContent({
   const totalPages = Math.ceil(totalCount / limit);
   const SKELETON_COUNT = 8;
 
-  // Shared props for ViolationRow — avoids repeating in both slice renders
+  // Shared props for ViolationRow
   const rowSharedProps = {
     onSelect: setSelectedViolation,
     onAccept: (id: string) => handleUpdateStatus(id, 'ACCEPTED'),
@@ -929,7 +913,6 @@ export default function DashboardContent({
 
             {/* Left: label + scene size stepper */}
             <div className="flex items-center gap-3">
-              {/* Active records label */}
               <div className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
                 <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -937,7 +920,6 @@ export default function DashboardContent({
                 </h2>
               </div>
 
-              {/* Divider */}
               <div className="w-px h-4 bg-blue-100" />
 
               {/* Scene size stepper */}
@@ -1133,26 +1115,26 @@ export default function DashboardContent({
               <div className="flex-1 overflow-y-auto p-7">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
 
-                  {/* Images */}
+                  {/* Images — read directly from selectedViolation, no extra fetch */}
                   <div className="space-y-5">
                     <div>
                       <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{T.modal.images.complete}</h4>
-                      {loadingImages
-                        ? <div className="w-full h-48 bg-gradient-to-r from-slate-100 via-slate-200 to-slate-100 animate-[shimmer_1.4s_infinite] border border-blue-50" />
-                        : toImageSrc(extraImages?.complete_image)
-                          ? <div className="border border-blue-50 overflow-hidden group rounded-sm">
-                              <LazyImage src={toImageSrc(extraImages!.complete_image)!} alt="Scene" fullSize />
-                            </div>
-                          : <div className="w-full py-10 flex flex-col items-center gap-2 bg-slate-50 border border-dashed border-slate-200 text-[9px] text-slate-300 uppercase tracking-widest">No Image</div>
+                      {modalSceneSrc
+                        ? <div className="border border-blue-50 overflow-hidden group rounded-sm">
+                            <LazyImage src={modalSceneSrc} alt="Scene" fullSize />
+                          </div>
+                        : <div className="w-full py-10 flex flex-col items-center gap-2 bg-slate-50 border border-dashed border-slate-200 text-[9px] text-slate-300 uppercase tracking-widest">
+                            No Image
+                          </div>
                       }
                     </div>
                     <div>
                       <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{T.modal.images.plate}</h4>
-                      {loadingImages
-                        ? <div className="w-full h-32 bg-gradient-to-r from-slate-100 via-slate-200 to-slate-100 animate-[shimmer_1.4s_infinite] border border-blue-50" />
-                        : toImageSrc(extraImages?.plate_image)
-                          ? <PlateLazyImage src={toImageSrc(extraImages!.plate_image)!} alt="Plate" fullSize />
-                          : <div className="w-full py-5 flex items-center justify-center bg-slate-50 border border-dashed border-slate-200 text-[9px] text-slate-300 uppercase tracking-widest">No Plate Image</div>
+                      {modalPlateSrc
+                        ? <PlateLazyImage src={modalPlateSrc} alt="Plate" fullSize />
+                        : <div className="w-full py-5 flex items-center justify-center bg-slate-50 border border-dashed border-slate-200 text-[9px] text-slate-300 uppercase tracking-widest">
+                            No Plate Image
+                          </div>
                       }
                     </div>
                   </div>

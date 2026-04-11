@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('helmet_violations')
       .select(
-        'id, track_id, vehicle_number, challan,detected_at, location, helmet_status, date_folder, status, reason, created_at, complete_image_b64, plate_image_b64',
+        'id, track_id, vehicle_number, challan,detected_at, location, helmet_status, date_folder, status, reason, created_at, complete_image_url, plate_image_url',
         { count: 'exact' }
       );
 
