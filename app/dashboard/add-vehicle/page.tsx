@@ -3,8 +3,7 @@
 
 import React, { useState } from 'react';
 
-const LOCATIONS = ['Location 1', 'Location 2', 'Location 3', 'Location 4'];
-
+const LOCATIONS = ['Retikhol', 'Palsapali/Garhfuljhar', 'Temri', 'Narra'];
 export default function AddVehiclePage() {
   const [plate, setPlate] = useState('');
   const [location, setLocation] = useState('');
