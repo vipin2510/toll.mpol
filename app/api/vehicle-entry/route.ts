@@ -13,6 +13,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { data, error } = await supabase
+  .schema('Toll') // <-- ADD THIS LINE
     .from('ratikhol_anpr')
     .insert({
       plate_number: plate_number.toUpperCase().trim(),

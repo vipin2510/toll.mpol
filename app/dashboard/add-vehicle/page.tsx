@@ -1,7 +1,7 @@
 // app/dashboard/add-vehicle/page.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const LOCATIONS = ['Retikhol', 'Palsapali/Garhfuljhar', 'Temri', 'Narra','Devbhog'];
 
@@ -17,14 +17,19 @@ export default function AddVehiclePage() {
   const [location, setLocation] = useState('');
   const [direction, setDirection] = useState<'in_cg' | 'exit_cg'>('in_cg');
   
-  // Initialize with local time instead of GMT
-  const [entryTime, setEntryTime] = useState(getLocalISOString);
+  // Initialize with an empty string to prevent Server/Client hydration mismatch
+  const [entryTime, setEntryTime] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [entryMsg, setEntryMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
+  // Use useEffect to set the local time only on the client
+  useEffect(() => {
+    setEntryTime(getLocalISOString());
+  }, []);
+
   async function handleEntrySubmit(e: React.FormEvent) {
     e.preventDefault(); 
-    if (!plate || !location) return;
+    if (!plate || !location || !entryTime) return;
     
     setSubmitting(true);
     setEntryMsg(null);
@@ -48,6 +53,9 @@ export default function AddVehiclePage() {
       setSubmitting(false);
     }
   }
+
+  // Optional: Prevent rendering the form until the client has mounted to avoid a flash of empty input
+  if (!entryTime) return null; 
 
   return (
     <div className="max-w-3xl mx-auto mt-8 px-4">
