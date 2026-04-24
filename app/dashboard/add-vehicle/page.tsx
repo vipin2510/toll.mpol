@@ -3,17 +3,27 @@
 
 import React, { useState } from 'react';
 
-const LOCATIONS = ['Retikhol', 'Palsapali/Garhfuljhar', 'Temri', 'Narra'];
+const LOCATIONS = ['Retikhol', 'Palsapali/Garhfuljhar', 'Temri', 'Narra','Devbhog'];
+
+// Helper function to get exact local time in YYYY-MM-DDTHH:mm format
+const getLocalISOString = () => {
+  const now = new Date();
+  const timezoneOffsetMs = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
+};
+
 export default function AddVehiclePage() {
   const [plate, setPlate] = useState('');
   const [location, setLocation] = useState('');
   const [direction, setDirection] = useState<'in_cg' | 'exit_cg'>('in_cg');
-  const [entryTime, setEntryTime] = useState(() => new Date().toISOString().slice(0, 16));
+  
+  // Initialize with local time instead of GMT
+  const [entryTime, setEntryTime] = useState(getLocalISOString);
   const [submitting, setSubmitting] = useState(false);
   const [entryMsg, setEntryMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   async function handleEntrySubmit(e: React.FormEvent) {
-    e.preventDefault(); // Prevent page reload on form submit
+    e.preventDefault(); 
     if (!plate || !location) return;
     
     setSubmitting(true);
@@ -30,7 +40,8 @@ export default function AddVehiclePage() {
       setEntryMsg({ ok: true, text: `Successfully saved vehicle entry (ID: ${json.id})` });
       setPlate('');
       setLocation('');
-      setEntryTime(new Date().toISOString().slice(0, 16));
+      // Reset the time to the current local time for the next entry
+      setEntryTime(getLocalISOString());
     } catch (e: any) {
       setEntryMsg({ ok: false, text: e.message ?? 'Failed to save entry' });
     } finally {
@@ -112,17 +123,18 @@ export default function AddVehiclePage() {
             </div>
           </div>
 
-          {/* Time */}
+          {/* Time (Read-Only Local Time) */}
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-black text-blue-300/70 uppercase tracking-widest">
-              Date & Time
+            <label className="text-xs font-black text-blue-300/70 uppercase tracking-widest flex items-center justify-between">
+              <span>Date & Time (Local)</span>
+              <span className="text-[10px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">Auto-Generated</span>
             </label>
             <input
               type="datetime-local"
               required
+              readOnly
               value={entryTime}
-              onChange={e => setEntryTime(e.target.value)}
-              className="w-full bg-slate-900/50 text-white text-base font-bold px-4 py-3 rounded-lg border border-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all cursor-pointer"
+              className="w-full bg-slate-900/30 text-slate-400 text-base font-bold px-4 py-3 rounded-lg border border-slate-700 cursor-not-allowed focus:outline-none transition-all"
             />
           </div>
         </div>
